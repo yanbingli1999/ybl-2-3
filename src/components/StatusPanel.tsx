@@ -146,12 +146,18 @@ export default function StatusPanel() {
       {(charging.isCharging || isRepairing || isResting) && (
         <div className="bg-game-neon/10 border border-game-neon/50 rounded p-2 text-center space-y-1">
           <span className="font-retro text-xs text-game-neon">
-            {charging.isCharging && charging.method && `正在${getChargeMethodName(charging.method)}中...`}
+            {charging.isCharging && charging.method && (charging.queueWaitRemaining > 0 ? `排队等待${getChargeMethodName(charging.method)}...` : `正在${getChargeMethodName(charging.method)}中...`)}
             {isRepairing && '正在维修中...'}
             {isResting && '正在休息中...'}
           </span>
           {charging.isCharging && (
             <div className="text-xs space-y-0.5">
+              {charging.queueWaitRemaining > 0 && (
+                <div className="flex justify-between px-1">
+                  <span className="font-retro text-gray-400">排队剩余</span>
+                  <span className="font-retro text-game-warning">{charging.queueWaitRemaining.toFixed(1)}秒</span>
+                </div>
+              )}
               <div className="flex justify-between px-1">
                 <span className="font-retro text-gray-400">已充电</span>
                 <span className="font-retro text-game-neon">+{charging.chargeAmount.toFixed(1)}%</span>

@@ -10,6 +10,8 @@ export default function ControlBar({ onOpenSave, setKey }: { onOpenSave: () => v
   const isResting = useGameStore((state) => state.isResting);
   const saveGame = useGameStore((state) => state.save);
   const loadGame = useGameStore((state) => state.load);
+  const player = useGameStore((state) => state.player);
+  const vehicle = useGameStore((state) => state.vehicle);
 
   const nearCharging = useGameStore(selectIsNearCharging);
   const nearRepair = useGameStore(selectIsNearRepair);
@@ -140,9 +142,23 @@ export default function ControlBar({ onOpenSave, setKey }: { onOpenSave: () => v
         <div className="flex items-center gap-2">
           <button
             onClick={handleCharge}
-            disabled={!nearCharging && !charging.isCharging}
+            disabled={
+              charging.isCharging
+                ? false
+                : !nearCharging ||
+                  !nearestStation ||
+                  vehicle.battery >= vehicle.maxBattery ||
+                  player.money < (vehicle.maxBattery - vehicle.battery) * (nearestStation?.fastChargePrice || 0)
+            }
             className={`pixel-btn text-xs flex items-center gap-1 ${
-              charging.isCharging ? 'pixel-btn-success' : !nearCharging ? 'opacity-50 cursor-not-allowed' : ''
+              charging.isCharging
+                ? 'pixel-btn-success'
+                : !nearCharging ||
+                  !nearestStation ||
+                  vehicle.battery >= vehicle.maxBattery ||
+                  player.money < (vehicle.maxBattery - vehicle.battery) * (nearestStation?.fastChargePrice || 0)
+                  ? 'opacity-50 cursor-not-allowed'
+                  : ''
             }`}
           >
             <Zap size={14} />

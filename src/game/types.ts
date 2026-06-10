@@ -113,6 +113,7 @@ export interface ChargingState {
   totalCost: number;
   estimatedTime: number;
   remainingTime: number;
+  queueWaitRemaining: number;
 }
 
 export interface IncomeRecord {
@@ -155,6 +156,7 @@ export interface GameSave {
   incomeRecords: IncomeRecord[];
   gameTime: number;
   map: MapData;
+  charging: ChargingState;
 }
 
 export type GameAction =

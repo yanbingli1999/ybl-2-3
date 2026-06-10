@@ -152,13 +152,19 @@ export default function ChargingStationPanel() {
         <div className="bg-game-neon/10 border border-game-neon/50 rounded p-3 space-y-2">
           <div className="flex justify-between items-center">
             <span className="font-pixel text-xs text-game-neon">
-              正在{getMethodName(charging.method)}中...
+              {charging.queueWaitRemaining > 0 ? `排队等待${getMethodName(charging.method)}...` : `正在${getMethodName(charging.method)}中...`}
             </span>
-            <span className="font-retro text-xs text-game-success animate-pulse">
-              ⚡ 充电中
+            <span className={`font-retro text-xs animate-pulse ${charging.queueWaitRemaining > 0 ? 'text-game-warning' : 'text-game-success'}`}>
+              {charging.queueWaitRemaining > 0 ? '⏳ 排队中' : '⚡ 充电中'}
             </span>
           </div>
           <div className="space-y-1">
+            {charging.queueWaitRemaining > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="font-retro text-gray-400">排队剩余</span>
+                <span className="font-retro text-game-warning">{charging.queueWaitRemaining.toFixed(1)}秒</span>
+              </div>
+            )}
             <div className="flex justify-between text-xs">
               <span className="font-retro text-gray-400">已充电</span>
               <span className="font-retro text-game-neon">+{charging.chargeAmount.toFixed(1)}%</span>
@@ -180,7 +186,7 @@ export default function ChargingStationPanel() {
           <div className="progress-bar">
             <div
               className="progress-bar-fill"
-              style={{ width: `${(charging.chargeAmount / (vehicle.maxBattery - vehicle.battery + charging.chargeAmount)) * 100}%` }}
+              style={{ width: `${Math.min(100, (charging.chargeAmount / Math.max(1, vehicle.maxBattery - (vehicle.battery - charging.chargeAmount))) * 100)}%` }}
             />
           </div>
         </div>

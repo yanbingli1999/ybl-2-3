@@ -57,6 +57,7 @@ export function createInitialState(): GameState {
       totalCost: 0,
       estimatedTime: 0,
       remainingTime: 0,
+      queueWaitRemaining: 0,
     },
     isRepairing: false,
     isResting: false,
@@ -186,11 +187,30 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       if (action.method === 'battery_swap' && station.remainingBatteries <= 0) return state;
 
-      const estimatedTime = calculateEstimatedChargeTime(
+      const neededBattery = state.vehicle.maxBattery - state.vehicle.battery;
+      if (neededBattery <= 0) return state;
+
+      let minRequiredMoney = 0;
+      switch (action.method) {
+        case 'slow':
+          minRequiredMoney = neededBattery * station.slowChargePrice;
+          break;
+        case 'fast':
+          minRequiredMoney = neededBattery * station.fastChargePrice;
+          break;
+        case 'battery_swap':
+          minRequiredMoney = station.batterySwapPrice;
+          break;
+      }
+      if (state.player.money < minRequiredMoney) return state;
+
+      const queueWaitTime = station.queueCount > 0 ? (station.queueCount) * 5 : 0;
+      const estimatedChargeTime = calculateEstimatedChargeTime(
         action.method,
         state.vehicle.battery,
         state.vehicle.maxBattery
       );
+      const estimatedTime = queueWaitTime + estimatedChargeTime;
 
       const newChargingStations = state.map.chargingStations.map((s) => {
         if (s.id === action.stationId) {
@@ -213,6 +233,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           totalCost: 0,
           estimatedTime,
           remainingTime: estimatedTime,
+          queueWaitRemaining: queueWaitTime,
         },
         isRepairing: false,
         isResting: false,
@@ -239,6 +260,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           totalCost: 0,
           estimatedTime: 0,
           remainingTime: 0,
+          queueWaitRemaining: 0,
         },
       };
     }
@@ -300,39 +322,26 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (newState.charging.isCharging && newState.charging.method && newState.charging.stationId) {
         const station = newState.map.chargingStations.find((s) => s.id === newState.charging.stationId);
         if (station) {
-          const { vehicle, cost, charged, completed } = chargeVehicle(
-            newState.vehicle,
-            newState.charging.method,
-            action.deltaTime,
-            station
-          );
-
-          if (newState.player.money < cost && !completed) {
+          if (newState.charging.queueWaitRemaining > 0) {
             newState.charging = {
               ...newState.charging,
-              isCharging: false,
-            };
-            const newChargingStations = newState.map.chargingStations.map((s) => {
-              if (s.id === newState.charging.stationId) {
-                return { ...s, queueCount: Math.max(0, s.queueCount - 1) };
-              }
-              return s;
-            });
-            newState.map = { ...newState.map, chargingStations: newChargingStations };
-          } else {
-            newState.vehicle = vehicle;
-            newState.player = {
-              ...newState.player,
-              money: Math.max(0, newState.player.money - cost),
-            };
-            newState.charging = {
-              ...newState.charging,
-              chargeAmount: newState.charging.chargeAmount + charged,
-              totalCost: newState.charging.totalCost + cost,
+              queueWaitRemaining: Math.max(0, newState.charging.queueWaitRemaining - action.deltaTime),
               remainingTime: Math.max(0, newState.charging.remainingTime - action.deltaTime),
             };
+          } else {
+            const { vehicle, cost, charged, completed } = chargeVehicle(
+              newState.vehicle,
+              newState.charging.method,
+              action.deltaTime,
+              station
+            );
 
-            if (completed) {
+            if (newState.player.money < cost && !completed) {
+              newState.charging = {
+                ...newState.charging,
+                isCharging: false,
+                queueWaitRemaining: 0,
+              };
               const newChargingStations = newState.map.chargingStations.map((s) => {
                 if (s.id === newState.charging.stationId) {
                   return { ...s, queueCount: Math.max(0, s.queueCount - 1) };
@@ -340,11 +349,34 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 return s;
               });
               newState.map = { ...newState.map, chargingStations: newChargingStations };
+            } else {
+              newState.vehicle = vehicle;
+              newState.player = {
+                ...newState.player,
+                money: Math.max(0, newState.player.money - cost),
+              };
               newState.charging = {
                 ...newState.charging,
-                isCharging: false,
-                remainingTime: 0,
+                chargeAmount: newState.charging.chargeAmount + charged,
+                totalCost: newState.charging.totalCost + cost,
+                remainingTime: Math.max(0, newState.charging.remainingTime - action.deltaTime),
               };
+
+              if (completed) {
+                const newChargingStations = newState.map.chargingStations.map((s) => {
+                  if (s.id === newState.charging.stationId) {
+                    return { ...s, queueCount: Math.max(0, s.queueCount - 1) };
+                  }
+                  return s;
+                });
+                newState.map = { ...newState.map, chargingStations: newChargingStations };
+                newState.charging = {
+                  ...newState.charging,
+                  isCharging: false,
+                  remainingTime: 0,
+                  queueWaitRemaining: 0,
+                };
+              }
             }
           }
         }
@@ -436,6 +468,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'LOAD_GAME': {
       const save = action.save;
+      const initialCharging = createInitialState().charging;
       return {
         ...createInitialState(),
         player: save.player,
@@ -445,6 +478,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         incomeRecords: save.incomeRecords,
         gameTime: save.gameTime,
         map: save.map,
+        charging: (save as any).charging || initialCharging,
       };
     }
 
@@ -507,7 +541,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         state.orders,
         state.incomeRecords,
         state.gameTime,
-        state.map
+        state.map,
+        state.charging
       );
     },
 

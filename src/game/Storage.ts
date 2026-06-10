@@ -1,4 +1,4 @@
-import { GameSave, PlayerState, VehicleState, WeatherState, Order, IncomeRecord, MapData } from './types';
+import { GameSave, PlayerState, VehicleState, WeatherState, Order, IncomeRecord, MapData, ChargingState } from './types';
 import { STORAGE_KEY, SAVE_VERSION } from './constants';
 
 export function saveGame(
@@ -8,7 +8,8 @@ export function saveGame(
   orders: Order[],
   incomeRecords: IncomeRecord[],
   gameTime: number,
-  map: MapData
+  map: MapData,
+  charging: ChargingState
 ): boolean {
   try {
     const save: GameSave = {
@@ -21,6 +22,7 @@ export function saveGame(
       incomeRecords,
       gameTime,
       map,
+      charging,
     };
 
     const json = JSON.stringify(save, null, 2);
