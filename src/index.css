@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'VT323', monospace;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.95);
+  background-color: #0a1628;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0a1628 0%, #142238 100%);
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Press Start 2P', cursive;
+  letter-spacing: 1px;
+}
+
+.pixel-border {
+  border: 4px solid;
+  border-image: linear-gradient(45deg, #00ffcc, #ffcc4d) 1;
+  image-rendering: pixelated;
+}
+
+.pixel-btn {
+  @apply px-4 py-2 font-pixel text-xs bg-game-nightLight border-2 border-game-neon text-game-neon;
+  @apply hover:bg-game-neon hover:text-game-night transition-all duration-150;
+  @apply active:translate-y-1 shadow-pixel;
+  image-rendering: pixelated;
+}
+
+.pixel-btn-danger {
+  @apply border-game-danger text-game-danger hover:bg-game-danger hover:text-white;
+}
+
+.pixel-btn-success {
+  @apply border-game-success text-game-success hover:bg-game-success hover:text-game-night;
+}
+
+.progress-bar {
+  @apply h-4 bg-game-night border-2 border-game-roadLine overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full transition-all duration-300;
+  background: linear-gradient(90deg, #00ffcc 0%, #00cc99 100%);
+}
+
+.progress-bar-fill.danger {
+  background: linear-gradient(90deg, #ff4757 0%, #ff6b81 100%);
+}
+
+.progress-bar-fill.warning {
+  background: linear-gradient(90deg, #ffcc4d 0%, #ffda79 100%);
+}
+
+.game-card {
+  @apply bg-game-nightLight/90 backdrop-blur border-2 border-game-neon/30 rounded;
+  @apply shadow-pixel;
+}
+
+.scanline {
+  position: relative;
+}
+
+.scanline::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.1) 2px,
+    rgba(0, 0, 0, 0.1) 4px
+  );
+  pointer-events: none;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.95; }
+}
+
+.flicker {
+  animation: flicker 0.1s infinite;
+}
+
+.glow-text {
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a1628;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00ffcc;
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00cc99;
+}
+
+button {
+  font-family: inherit;
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
