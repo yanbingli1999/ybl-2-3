@@ -267,10 +267,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'START_REPAIRING': {
       if (!isNearRepairShop(state.player.position, state.map.repairShops)) return state;
+      let newChargingStations = state.map.chargingStations;
+      if (state.charging.isCharging && state.charging.stationId) {
+        newChargingStations = state.map.chargingStations.map((s) => {
+          if (s.id === state.charging.stationId) {
+            return { ...s, queueCount: Math.max(0, s.queueCount - 1) };
+          }
+          return s;
+        });
+      }
       return {
         ...state,
+        map: { ...state.map, chargingStations: newChargingStations },
         isRepairing: true,
-        charging: { ...state.charging, isCharging: false },
+        charging: { ...state.charging, isCharging: false, queueWaitRemaining: 0 },
         isResting: false
       };
     }
@@ -280,10 +290,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_RESTING': {
+      let newChargingStations = state.map.chargingStations;
+      if (state.charging.isCharging && state.charging.stationId) {
+        newChargingStations = state.map.chargingStations.map((s) => {
+          if (s.id === state.charging.stationId) {
+            return { ...s, queueCount: Math.max(0, s.queueCount - 1) };
+          }
+          return s;
+        });
+      }
       return {
         ...state,
+        map: { ...state.map, chargingStations: newChargingStations },
         isResting: true,
-        charging: { ...state.charging, isCharging: false },
+        charging: { ...state.charging, isCharging: false, queueWaitRemaining: 0 },
         isRepairing: false
       };
     }

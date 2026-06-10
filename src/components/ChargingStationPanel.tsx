@@ -58,14 +58,18 @@ export default function ChargingStationPanel() {
   if (!station) return null;
 
   const neededBattery = vehicle.maxBattery - vehicle.battery;
+  const queueWaitSeconds = station.queueCount * 5;
 
   const getSlowChargeInfo = () => {
     const cost = calculateChargeCost('slow', neededBattery, station);
-    const time = calculateEstimatedChargeTime('slow', vehicle.battery, vehicle.maxBattery);
+    const chargeTime = calculateEstimatedChargeTime('slow', vehicle.battery, vehicle.maxBattery);
+    const totalTime = chargeTime + queueWaitSeconds;
     const canAfford = player.money >= cost;
     return {
       price: `${formatMoney(cost)} (${station.slowChargePrice.toFixed(2)}/单位)`,
-      time: `${time.toFixed(1)} 秒`,
+      time: queueWaitSeconds > 0
+        ? `${totalTime.toFixed(1)} 秒 (排队${queueWaitSeconds}s + 充电${chargeTime.toFixed(1)}s)`
+        : `${chargeTime.toFixed(1)} 秒`,
       disabled: !canAfford || neededBattery <= 0,
       disabledReason: !canAfford ? '余额不足' : neededBattery <= 0 ? '电量已满' : undefined,
     };
@@ -73,11 +77,14 @@ export default function ChargingStationPanel() {
 
   const getFastChargeInfo = () => {
     const cost = calculateChargeCost('fast', neededBattery, station);
-    const time = calculateEstimatedChargeTime('fast', vehicle.battery, vehicle.maxBattery);
+    const chargeTime = calculateEstimatedChargeTime('fast', vehicle.battery, vehicle.maxBattery);
+    const totalTime = chargeTime + queueWaitSeconds;
     const canAfford = player.money >= cost;
     return {
       price: `${formatMoney(cost)} (${station.fastChargePrice.toFixed(2)}/单位)`,
-      time: `${time.toFixed(1)} 秒`,
+      time: queueWaitSeconds > 0
+        ? `${totalTime.toFixed(1)} 秒 (排队${queueWaitSeconds}s + 充电${chargeTime.toFixed(1)}s)`
+        : `${chargeTime.toFixed(1)} 秒`,
       disabled: !canAfford || neededBattery <= 0,
       disabledReason: !canAfford ? '余额不足' : neededBattery <= 0 ? '电量已满' : undefined,
     };
@@ -85,12 +92,15 @@ export default function ChargingStationPanel() {
 
   const getBatterySwapInfo = () => {
     const cost = station.batterySwapPrice;
-    const time = calculateEstimatedChargeTime('battery_swap', vehicle.battery, vehicle.maxBattery);
+    const chargeTime = calculateEstimatedChargeTime('battery_swap', vehicle.battery, vehicle.maxBattery);
+    const totalTime = chargeTime + queueWaitSeconds;
     const canAfford = player.money >= cost;
     const hasBattery = station.remainingBatteries > 0;
     return {
       price: formatMoney(cost),
-      time: `${time.toFixed(0)} 秒 (立即满电)`,
+      time: queueWaitSeconds > 0
+        ? `${totalTime.toFixed(0)} 秒 (排队${queueWaitSeconds}s + 换电${chargeTime.toFixed(0)}s, 立即满电)`
+        : `${chargeTime.toFixed(0)} 秒 (立即满电)`,
       disabled: !canAfford || !hasBattery,
       disabledReason: !hasBattery ? '无可用电池' : !canAfford ? '余额不足' : undefined,
     };
