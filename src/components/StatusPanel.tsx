@@ -2,6 +2,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useGameStore } from '../store/gameStore';
 import { WEATHER_NAMES, WEATHER_COLORS } from '../game/constants';
 import { calculateTotalRating, formatMoney } from '../game/EconomySystem';
+import type { ChargingMethod } from '../game/types';
 import { Zap, Heart, Wrench, DollarSign, Cloud, Clock, Star } from 'lucide-react';
 
 export default function StatusPanel() {
@@ -10,9 +11,17 @@ export default function StatusPanel() {
   const weather = useGameStore((state) => state.weather);
   const gameTime = useGameStore((state) => state.gameTime);
   const incomeRecords = useGameStore(useShallow((state) => state.incomeRecords));
-  const isCharging = useGameStore((state) => state.isCharging);
+  const charging = useGameStore((state) => state.charging);
   const isRepairing = useGameStore((state) => state.isRepairing);
   const isResting = useGameStore((state) => state.isResting);
+
+  const getChargeMethodName = (method: ChargingMethod): string => {
+    switch (method) {
+      case 'slow': return '慢充';
+      case 'fast': return '快充';
+      case 'battery_swap': return '换电';
+    }
+  };
 
   const avgRating = calculateTotalRating(incomeRecords);
   const formatTime = (seconds: number) => {
@@ -53,7 +62,9 @@ export default function StatusPanel() {
             </div>
             <span className={`font-retro text-sm ${vehicle.battery < 20 ? 'text-game-danger animate-pulse' : ''}`}>
               {Math.floor(vehicle.battery)}%
-              {isCharging && <span className="text-game-success ml-1">⚡充电中</span>}
+              {charging.isCharging && charging.method && (
+                <span className="text-game-success ml-1">⚡{getChargeMethodName(charging.method)}中</span>
+              )}
             </span>
           </div>
           <div className="progress-bar">
@@ -132,13 +143,34 @@ export default function StatusPanel() {
         </div>
       </div>
 
-      {(isCharging || isRepairing || isResting) && (
-        <div className="bg-game-neon/10 border border-game-neon/50 rounded p-2 text-center">
+      {(charging.isCharging || isRepairing || isResting) && (
+        <div className="bg-game-neon/10 border border-game-neon/50 rounded p-2 text-center space-y-1">
           <span className="font-retro text-xs text-game-neon">
-            {isCharging && '正在充电中...'}
+            {charging.isCharging && charging.method && `正在${getChargeMethodName(charging.method)}中...`}
             {isRepairing && '正在维修中...'}
             {isResting && '正在休息中...'}
           </span>
+          {charging.isCharging && (
+            <div className="text-xs space-y-0.5">
+              <div className="flex justify-between px-1">
+                <span className="font-retro text-gray-400">已充电</span>
+                <span className="font-retro text-game-neon">+{charging.chargeAmount.toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between px-1">
+                <span className="font-retro text-gray-400">花费</span>
+                <span className="font-retro text-game-streetLight">{formatMoney(charging.totalCost)}</span>
+              </div>
+              <div className="flex justify-between px-1">
+                <span className="font-retro text-gray-400">剩余</span>
+                <span className="font-retro text-game-warning">
+                  {charging.remainingTime > 60
+                    ? `${Math.floor(charging.remainingTime / 60)}分${Math.floor(charging.remainingTime % 60)}秒`
+                    : `${charging.remainingTime.toFixed(1)}秒`
+                  }
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

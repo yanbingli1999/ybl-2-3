@@ -1,16 +1,17 @@
-import { VehicleState, Position, WeatherState } from './types';
+import { VehicleState, Position, WeatherState, ChargingMethod, ChargingStation } from './types';
 import {
   BASE_SPEED,
   BATTERY_DRAIN_RATE,
   DURABILITY_DRAIN_RATE,
   STAMINA_DRAIN_RATE,
-  CHARGE_RATE,
   REPAIR_RATE,
   REST_RATE,
-  CHARGE_COST,
   REPAIR_COST,
   GRID_SIZE,
   PLAYER_START,
+  SLOW_CHARGE_RATE,
+  FAST_CHARGE_RATE,
+  BATTERY_SWAP_CHARGE,
 } from './constants';
 import { isOnRoad } from './mapData';
 
@@ -138,21 +139,78 @@ export function moveVehicle(
   };
 }
 
+export function getChargeRate(method: ChargingMethod): number {
+  switch (method) {
+    case 'slow':
+      return SLOW_CHARGE_RATE;
+    case 'fast':
+      return FAST_CHARGE_RATE;
+    case 'battery_swap':
+      return BATTERY_SWAP_CHARGE;
+  }
+}
+
+export function calculateChargeCost(
+  method: ChargingMethod,
+  chargeAmount: number,
+  station: ChargingStation
+): number {
+  switch (method) {
+    case 'slow':
+      return chargeAmount * station.slowChargePrice;
+    case 'fast':
+      return chargeAmount * station.fastChargePrice;
+    case 'battery_swap':
+      return station.batterySwapPrice;
+  }
+}
+
+export function calculateEstimatedChargeTime(
+  method: ChargingMethod,
+  currentBattery: number,
+  maxBattery: number
+): number {
+  const needed = maxBattery - currentBattery;
+  const rate = getChargeRate(method);
+  if (method === 'battery_swap') {
+    return 3;
+  }
+  return needed / rate;
+}
+
 export function chargeVehicle(
   vehicle: VehicleState,
-  deltaTime: number
-): { vehicle: VehicleState; cost: number } {
-  const chargeAmount = CHARGE_RATE * deltaTime;
-  const actualCharge = Math.min(chargeAmount, vehicle.maxBattery - vehicle.battery);
-  const cost = actualCharge * CHARGE_COST;
+  method: ChargingMethod,
+  deltaTime: number,
+  station: ChargingStation
+): { vehicle: VehicleState; cost: number; charged: number; completed: boolean } {
+  const rate = getChargeRate(method);
+  let chargeAmount: number;
+  let completed = false;
+
+  if (method === 'battery_swap') {
+    chargeAmount = vehicle.maxBattery - vehicle.battery;
+    completed = true;
+  } else {
+    chargeAmount = rate * deltaTime;
+    const actualCharge = Math.min(chargeAmount, vehicle.maxBattery - vehicle.battery);
+    chargeAmount = actualCharge;
+    if (vehicle.battery + actualCharge >= vehicle.maxBattery) {
+      completed = true;
+    }
+  }
+
+  const cost = calculateChargeCost(method, chargeAmount, station);
 
   return {
     vehicle: {
       ...vehicle,
-      battery: Math.min(vehicle.maxBattery, vehicle.battery + actualCharge),
+      battery: Math.min(vehicle.maxBattery, vehicle.battery + chargeAmount),
       speed: 0,
     },
     cost,
+    charged: chargeAmount,
+    completed,
   };
 }
 
@@ -196,6 +254,24 @@ export function isNearChargingStation(
   return stations.some(
     (s) => Math.hypot(position.x - s.x, position.y - s.y) < GRID_SIZE * 1.5
   );
+}
+
+export function getNearestChargingStation(
+  position: Position,
+  stations: ChargingStation[]
+): ChargingStation | null {
+  let nearest: ChargingStation | null = null;
+  let minDist = Infinity;
+
+  for (const station of stations) {
+    const dist = Math.hypot(position.x - station.x, position.y - station.y);
+    if (dist < minDist && dist < GRID_SIZE * 1.5) {
+      minDist = dist;
+      nearest = station;
+    }
+  }
+
+  return nearest;
 }
 
 export function isNearRepairShop(

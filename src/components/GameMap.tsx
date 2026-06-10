@@ -141,23 +141,45 @@ export default function GameMap() {
 
     const drawChargingStations = (ctx: CanvasRenderingContext2D) => {
       map.chargingStations.forEach((station) => {
+        const batteryRatio = station.remainingBatteries / station.maxBatteries;
+        const stationColor = batteryRatio > 0.5 ? '#00ffcc' : batteryRatio > 0.2 ? '#ffcc4d' : '#ff4757';
+
         ctx.beginPath();
-        ctx.arc(station.x, station.y, GRID_SIZE / 2 + 5, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 255, 204, 0.2)';
+        ctx.arc(station.x, station.y, GRID_SIZE / 2 + 8, 0, Math.PI * 2);
+        ctx.fillStyle = `${stationColor}20`;
         ctx.fill();
 
-        ctx.fillStyle = '#00ffcc';
-        ctx.fillRect(station.x - 12, station.y - 12, 24, 24);
+        ctx.fillStyle = stationColor;
+        ctx.fillRect(station.x - 14, station.y - 14, 28, 28);
 
         ctx.fillStyle = '#0a1628';
-        ctx.font = 'bold 14px VT323';
+        ctx.font = 'bold 16px VT323';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('⚡', station.x, station.y);
 
-        ctx.fillStyle = '#00ffcc';
-        ctx.font = '10px VT323';
-        ctx.fillText(station.name, station.x, station.y + 25);
+        ctx.fillStyle = stationColor;
+        ctx.font = 'bold 10px VT323';
+        ctx.fillText(station.name, station.x, station.y + 28);
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(station.x - 20, station.y - 30, 40, 12);
+        ctx.fillStyle = stationColor;
+        ctx.fillRect(station.x - 19, station.y - 29, 38 * batteryRatio, 10);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '9px VT323';
+        ctx.fillText(`${station.remainingBatteries}/${station.maxBatteries}`, station.x, station.y - 24);
+
+        if (station.queueCount > 0) {
+          ctx.fillStyle = '#ffcc4d';
+          ctx.beginPath();
+          ctx.arc(station.x + 14, station.y - 18, 8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#0a1628';
+          ctx.font = 'bold 10px VT323';
+          ctx.fillText(station.queueCount.toString(), station.x + 14, station.y - 18);
+        }
       });
     };
 

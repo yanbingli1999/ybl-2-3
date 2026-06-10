@@ -11,13 +11,17 @@ import {
   restPlayer,
   isNearChargingStation,
   isNearRepairShop,
+  getNearestChargingStation,
+  calculateEstimatedChargeTime,
 } from '../game/VehicleSystem';
+import type { ChargingMethod, ChargingStation } from '../game/types';
 import { calculateSettlement } from '../game/EconomySystem';
 import { saveGame, loadGame } from '../game/Storage';
 import {
   PLAYER_START,
   MAX_AVAILABLE_ORDERS,
   ORDER_GENERATION_INTERVAL,
+  GRID_SIZE,
 } from '../game/constants';
 
 export function createInitialState(): GameState {
@@ -45,7 +49,15 @@ export function createInitialState(): GameState {
     showSettlement: false,
     lastSettlement: null,
     plannedPath: [],
-    isCharging: false,
+    charging: {
+      isCharging: false,
+      method: null,
+      stationId: null,
+      chargeAmount: 0,
+      totalCost: 0,
+      estimatedTime: 0,
+      remainingTime: 0,
+    },
     isRepairing: false,
     isResting: false,
   };
@@ -54,7 +66,7 @@ export function createInitialState(): GameState {
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'MOVE': {
-      if (state.isPaused || state.isGameOver || state.isCharging || state.isRepairing || state.isResting) {
+      if (state.isPaused || state.isGameOver || state.charging.isCharging || state.isRepairing || state.isResting) {
         return state;
       }
 
@@ -166,17 +178,79 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_CHARGING': {
-      if (!isNearChargingStation(state.player.position, state.map.chargingStations)) return state;
-      return { ...state, isCharging: true, isRepairing: false, isResting: false };
+      const station = state.map.chargingStations.find((s) => s.id === action.stationId);
+      if (!station) return state;
+
+      const dist = Math.hypot(state.player.position.x - station.x, state.player.position.y - station.y);
+      if (dist > GRID_SIZE * 1.5) return state;
+
+      if (action.method === 'battery_swap' && station.remainingBatteries <= 0) return state;
+
+      const estimatedTime = calculateEstimatedChargeTime(
+        action.method,
+        state.vehicle.battery,
+        state.vehicle.maxBattery
+      );
+
+      const newChargingStations = state.map.chargingStations.map((s) => {
+        if (s.id === action.stationId) {
+          if (action.method === 'battery_swap') {
+            return { ...s, remainingBatteries: s.remainingBatteries - 1, queueCount: s.queueCount + 1 };
+          }
+          return { ...s, queueCount: s.queueCount + 1 };
+        }
+        return s;
+      });
+
+      return {
+        ...state,
+        map: { ...state.map, chargingStations: newChargingStations },
+        charging: {
+          isCharging: true,
+          method: action.method,
+          stationId: action.stationId,
+          chargeAmount: 0,
+          totalCost: 0,
+          estimatedTime,
+          remainingTime: estimatedTime,
+        },
+        isRepairing: false,
+        isResting: false,
+      };
     }
 
     case 'STOP_CHARGING': {
-      return { ...state, isCharging: false };
+      const stationId = state.charging.stationId;
+      const newChargingStations = state.map.chargingStations.map((s) => {
+        if (s.id === stationId) {
+          return { ...s, queueCount: Math.max(0, s.queueCount - 1) };
+        }
+        return s;
+      });
+
+      return {
+        ...state,
+        map: { ...state.map, chargingStations: newChargingStations },
+        charging: {
+          isCharging: false,
+          method: null,
+          stationId: null,
+          chargeAmount: 0,
+          totalCost: 0,
+          estimatedTime: 0,
+          remainingTime: 0,
+        },
+      };
     }
 
     case 'START_REPAIRING': {
       if (!isNearRepairShop(state.player.position, state.map.repairShops)) return state;
-      return { ...state, isRepairing: true, isCharging: false, isResting: false };
+      return {
+        ...state,
+        isRepairing: true,
+        charging: { ...state.charging, isCharging: false },
+        isResting: false
+      };
     }
 
     case 'STOP_REPAIRING': {
@@ -184,7 +258,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_RESTING': {
-      return { ...state, isResting: true, isCharging: false, isRepairing: false };
+      return {
+        ...state,
+        isResting: true,
+        charging: { ...state.charging, isCharging: false },
+        isRepairing: false
+      };
     }
 
     case 'STOP_RESTING': {
@@ -218,15 +297,56 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       newState.orders = updateOrderDeadlines(newState.orders, action.deltaTime);
       newState.weather = updateWeather(newState.weather, action.deltaTime);
 
-      if (newState.isCharging) {
-        const { vehicle, cost } = chargeVehicle(newState.vehicle, action.deltaTime);
-        newState.vehicle = vehicle;
-        newState.player = {
-          ...newState.player,
-          money: Math.max(0, newState.player.money - cost),
-        };
-        if (vehicle.battery >= vehicle.maxBattery) {
-          newState.isCharging = false;
+      if (newState.charging.isCharging && newState.charging.method && newState.charging.stationId) {
+        const station = newState.map.chargingStations.find((s) => s.id === newState.charging.stationId);
+        if (station) {
+          const { vehicle, cost, charged, completed } = chargeVehicle(
+            newState.vehicle,
+            newState.charging.method,
+            action.deltaTime,
+            station
+          );
+
+          if (newState.player.money < cost && !completed) {
+            newState.charging = {
+              ...newState.charging,
+              isCharging: false,
+            };
+            const newChargingStations = newState.map.chargingStations.map((s) => {
+              if (s.id === newState.charging.stationId) {
+                return { ...s, queueCount: Math.max(0, s.queueCount - 1) };
+              }
+              return s;
+            });
+            newState.map = { ...newState.map, chargingStations: newChargingStations };
+          } else {
+            newState.vehicle = vehicle;
+            newState.player = {
+              ...newState.player,
+              money: Math.max(0, newState.player.money - cost),
+            };
+            newState.charging = {
+              ...newState.charging,
+              chargeAmount: newState.charging.chargeAmount + charged,
+              totalCost: newState.charging.totalCost + cost,
+              remainingTime: Math.max(0, newState.charging.remainingTime - action.deltaTime),
+            };
+
+            if (completed) {
+              const newChargingStations = newState.map.chargingStations.map((s) => {
+                if (s.id === newState.charging.stationId) {
+                  return { ...s, queueCount: Math.max(0, s.queueCount - 1) };
+                }
+                return s;
+              });
+              newState.map = { ...newState.map, chargingStations: newChargingStations };
+              newState.charging = {
+                ...newState.charging,
+                isCharging: false,
+                remainingTime: 0,
+              };
+            }
+          }
         }
       }
 
@@ -332,6 +452,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, isGameOver: true };
     }
 
+    case 'UPDATE_CHARGING_STATION': {
+      const newChargingStations = state.map.chargingStations.map((s) => {
+        if (s.id === action.stationId) {
+          return { ...s, ...action.updates };
+        }
+        return s;
+      });
+      return { ...state, map: { ...state.map, chargingStations: newChargingStations } };
+    }
+
     default:
       return state;
   }
@@ -409,6 +539,18 @@ export const selectIsNearRepair = (state: GameState): boolean => {
   return isNearRepairShop(state.player.position, state.map.repairShops);
 };
 
+export const selectNearestChargingStation = (state: GameState): ChargingStation | null => {
+  return getNearestChargingStation(state.player.position, state.map.chargingStations);
+};
+
+export const selectIsCharging = (state: GameState): boolean => {
+  return state.charging.isCharging;
+};
+
+export const selectChargingState = (state: GameState) => {
+  return state.charging;
+};
+
 export function useCurrentOrder(): Order | null {
   return useGameStore(selectCurrentOrder);
 }
@@ -423,4 +565,16 @@ export function useIsNearCharging(): boolean {
 
 export function useIsNearRepair(): boolean {
   return useGameStore(selectIsNearRepair);
+}
+
+export function useNearestChargingStation(): ChargingStation | null {
+  return useGameStore(selectNearestChargingStation);
+}
+
+export function useIsCharging(): boolean {
+  return useGameStore(selectIsCharging);
+}
+
+export function useChargingState() {
+  return useGameStore(selectChargingState);
 }

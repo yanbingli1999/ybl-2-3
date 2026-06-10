@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useGameStore, selectIsNearCharging, selectIsNearRepair } from '../store/gameStore';
+import { useGameStore, selectIsNearCharging, selectIsNearRepair, useNearestChargingStation } from '../store/gameStore';
 import { Zap, Wrench, Coffee, Pause, Play, Save, FolderOpen, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 
 export default function ControlBar({ onOpenSave, setKey }: { onOpenSave: () => void; setKey: (key: string, pressed: boolean) => void }) {
   const dispatch = useGameStore((state) => state.dispatch);
   const isPaused = useGameStore((state) => state.isPaused);
-  const isCharging = useGameStore((state) => state.isCharging);
+  const charging = useGameStore((state) => state.charging);
   const isRepairing = useGameStore((state) => state.isRepairing);
   const isResting = useGameStore((state) => state.isResting);
   const saveGame = useGameStore((state) => state.save);
@@ -13,6 +13,7 @@ export default function ControlBar({ onOpenSave, setKey }: { onOpenSave: () => v
 
   const nearCharging = useGameStore(selectIsNearCharging);
   const nearRepair = useGameStore(selectIsNearRepair);
+  const nearestStation = useNearestChargingStation();
 
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
 
@@ -27,10 +28,10 @@ export default function ControlBar({ onOpenSave, setKey }: { onOpenSave: () => v
   };
 
   const handleCharge = () => {
-    if (isCharging) {
+    if (charging.isCharging) {
       dispatch({ type: 'STOP_CHARGING' });
-    } else if (nearCharging) {
-      dispatch({ type: 'START_CHARGING' });
+    } else if (nearCharging && nearestStation) {
+      dispatch({ type: 'START_CHARGING', method: 'fast', stationId: nearestStation.id });
     }
   };
 
@@ -139,13 +140,13 @@ export default function ControlBar({ onOpenSave, setKey }: { onOpenSave: () => v
         <div className="flex items-center gap-2">
           <button
             onClick={handleCharge}
-            disabled={!nearCharging && !isCharging}
+            disabled={!nearCharging && !charging.isCharging}
             className={`pixel-btn text-xs flex items-center gap-1 ${
-              isCharging ? 'pixel-btn-success' : !nearCharging ? 'opacity-50 cursor-not-allowed' : ''
+              charging.isCharging ? 'pixel-btn-success' : !nearCharging ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
             <Zap size={14} />
-            {isCharging ? '停止充电' : '充电'}
+            {charging.isCharging ? '停止充电' : '快充'}
           </button>
 
           <button
@@ -205,9 +206,9 @@ export default function ControlBar({ onOpenSave, setKey }: { onOpenSave: () => v
         </div>
       </div>
 
-      {nearCharging && !isCharging && (
+      {nearCharging && !charging.isCharging && nearestStation && (
         <div className="mt-2 text-center text-game-neon font-retro text-xs animate-pulse">
-          ⚡ 你在充电站附近，可以充电
+          ⚡ 你在{nearestStation.name}附近，左侧面板可选择充电方式
         </div>
       )}
       {nearRepair && !isRepairing && (

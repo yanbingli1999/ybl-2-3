@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useGameStore } from '../store/gameStore';
+import { useGameStore, useIsNearCharging, useIsCharging } from '../store/gameStore';
 import { useGameLoop } from '../hooks/useGameLoop';
 import GameMap from '../components/GameMap';
 import StatusPanel from '../components/StatusPanel';
 import OrderPanel from '../components/OrderPanel';
 import ControlBar from '../components/ControlBar';
+import ChargingStationPanel from '../components/ChargingStationPanel';
 import SettlementModal from '../components/SettlementModal';
 import SaveLoadModal from '../components/SaveLoadModal';
 import { hasSavedGame } from '../game/Storage';
@@ -18,6 +19,8 @@ export default function Home() {
   const dispatch = useGameStore((state) => state.dispatch);
   const player = useGameStore((state) => state.player);
   const loadGame = useGameStore((state) => state.load);
+  const nearCharging = useIsNearCharging();
+  const isCharging = useIsCharging();
 
   const { setKey } = useGameLoop();
 
@@ -54,7 +57,10 @@ export default function Home() {
       </h1>
 
       <div className="flex gap-4 items-start">
-        <StatusPanel />
+        <div className="flex flex-col gap-4">
+          <StatusPanel />
+          {(nearCharging || isCharging) && <ChargingStationPanel />}
+        </div>
         <div className="flex flex-col gap-4">
           <GameMap />
           <ControlBar onOpenSave={() => setShowSaveModal(true)} setKey={setKey} />

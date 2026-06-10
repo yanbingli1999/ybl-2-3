@@ -15,10 +15,6 @@ export function generateOrder(
   gameTime: number,
   existingOrders: Order[]
 ): Order | null {
-  const availablePickupPoints = map.chargingStations.concat(map.repairShops);
-  
-  if (availablePickupPoints.length < 2) return null;
-
   const usedNames = new Set(existingOrders.flatMap((o) => [
     o.pickupLocation.name,
     o.deliveryLocation.name,

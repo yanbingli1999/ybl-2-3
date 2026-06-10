@@ -71,6 +71,22 @@ export interface Building {
   color: string;
 }
 
+export type ChargingMethod = 'slow' | 'fast' | 'battery_swap';
+
+export interface ChargingStation {
+  id: string;
+  name: string;
+  type: 'charging';
+  x: number;
+  y: number;
+  remainingBatteries: number;
+  maxBatteries: number;
+  queueCount: number;
+  slowChargePrice: number;
+  fastChargePrice: number;
+  batterySwapPrice: number;
+}
+
 export interface LocationPoint {
   id: string;
   name: string;
@@ -85,8 +101,18 @@ export interface MapData {
   gridSize: number;
   roads: Road[];
   buildings: Building[];
-  chargingStations: LocationPoint[];
+  chargingStations: ChargingStation[];
   repairShops: LocationPoint[];
+}
+
+export interface ChargingState {
+  isCharging: boolean;
+  method: ChargingMethod | null;
+  stationId: string | null;
+  chargeAmount: number;
+  totalCost: number;
+  estimatedTime: number;
+  remainingTime: number;
 }
 
 export interface IncomeRecord {
@@ -114,7 +140,7 @@ export interface GameState {
   showSettlement: boolean;
   lastSettlement: IncomeRecord | null;
   plannedPath: Position[];
-  isCharging: boolean;
+  charging: ChargingState;
   isRepairing: boolean;
   isResting: boolean;
 }
@@ -136,7 +162,7 @@ export type GameAction =
   | { type: 'ACCEPT_ORDER'; orderId: string }
   | { type: 'PICKUP_ORDER'; orderId: string }
   | { type: 'DELIVER_ORDER'; orderId: string }
-  | { type: 'START_CHARGING' }
+  | { type: 'START_CHARGING'; method: ChargingMethod; stationId: string }
   | { type: 'STOP_CHARGING' }
   | { type: 'START_REPAIRING' }
   | { type: 'STOP_REPAIRING' }
@@ -150,4 +176,5 @@ export type GameAction =
   | { type: 'CLEAR_PATH' }
   | { type: 'NEW_GAME' }
   | { type: 'LOAD_GAME'; save: GameSave }
-  | { type: 'GAME_OVER' };
+  | { type: 'GAME_OVER' }
+  | { type: 'UPDATE_CHARGING_STATION'; stationId: string; updates: Partial<ChargingStation> };

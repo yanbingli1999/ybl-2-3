@@ -1,5 +1,14 @@
-import { MapData } from './types';
-import { GRID_SIZE, COLS, ROWS } from './constants';
+import { MapData, ChargingStation } from './types';
+import {
+  GRID_SIZE,
+  COLS,
+  ROWS,
+  SLOW_CHARGE_PRICE_PER_UNIT,
+  FAST_CHARGE_PRICE_PER_UNIT,
+  BATTERY_SWAP_PRICE,
+  CHARGING_STATION_MAX_BATTERIES,
+  CHARGING_STATION_BASE_BATTERIES,
+} from './constants';
 
 export function generateMapData(): MapData {
   const roads = generateRoads();
@@ -130,13 +139,30 @@ function generateBuildings(): MapData['buildings'] {
   return buildings;
 }
 
-function generateChargingStations(): MapData['chargingStations'] {
-  return [
-    { id: 'cs-1', name: '快充站 A', type: 'charging', x: GRID_SIZE * 4, y: GRID_SIZE * 3 },
-    { id: 'cs-2', name: '快充站 B', type: 'charging', x: GRID_SIZE * 16, y: GRID_SIZE * 6 },
-    { id: 'cs-3', name: '快充站 C', type: 'charging', x: GRID_SIZE * 12, y: GRID_SIZE * 12 },
-    { id: 'cs-4', name: '快充站 D', type: 'charging', x: GRID_SIZE * 24, y: GRID_SIZE * 9 },
+function generateChargingStations(): ChargingStation[] {
+  const stationConfigs = [
+    { id: 'cs-1', name: '能源站 A', x: GRID_SIZE * 4, y: GRID_SIZE * 3 },
+    { id: 'cs-2', name: '能源站 B', x: GRID_SIZE * 16, y: GRID_SIZE * 6 },
+    { id: 'cs-3', name: '能源站 C', x: GRID_SIZE * 12, y: GRID_SIZE * 12 },
+    { id: 'cs-4', name: '能源站 D', x: GRID_SIZE * 24, y: GRID_SIZE * 9 },
   ];
+
+  return stationConfigs.map((config) => {
+    const priceVariation = 0.85 + Math.random() * 0.3;
+    const batteryCount = Math.floor(CHARGING_STATION_BASE_BATTERIES + Math.random() * (CHARGING_STATION_MAX_BATTERIES - CHARGING_STATION_BASE_BATTERIES));
+    const queueCount = Math.floor(Math.random() * 5);
+
+    return {
+      ...config,
+      type: 'charging' as const,
+      remainingBatteries: batteryCount,
+      maxBatteries: CHARGING_STATION_MAX_BATTERIES,
+      queueCount,
+      slowChargePrice: Math.round(SLOW_CHARGE_PRICE_PER_UNIT * priceVariation * 100) / 100,
+      fastChargePrice: Math.round(FAST_CHARGE_PRICE_PER_UNIT * priceVariation * 100) / 100,
+      batterySwapPrice: Math.round(BATTERY_SWAP_PRICE * priceVariation),
+    };
+  });
 }
 
 function generateRepairShops(): MapData['repairShops'] {

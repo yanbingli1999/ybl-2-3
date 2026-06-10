@@ -47,7 +47,17 @@ export const MAX_ORDER_REWARD = 150;
 export const MIN_ORDER_DISTANCE = 2;
 export const MAX_ORDER_DISTANCE = 15;
 
-export const CHARGE_COST = 0.5;
+export const SLOW_CHARGE_RATE = 8;
+export const FAST_CHARGE_RATE = 25;
+export const BATTERY_SWAP_CHARGE = 100;
+
+export const SLOW_CHARGE_PRICE_PER_UNIT = 0.3;
+export const FAST_CHARGE_PRICE_PER_UNIT = 0.8;
+export const BATTERY_SWAP_PRICE = 80;
+
+export const CHARGING_STATION_MAX_BATTERIES = 10;
+export const CHARGING_STATION_BASE_BATTERIES = 5;
+
 export const REPAIR_COST = 1;
 
 export const MAX_AVAILABLE_ORDERS = 5;
